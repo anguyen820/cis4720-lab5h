@@ -381,7 +381,7 @@ CALL count_scores(3,5);
 
 -- =================================================================
 -- STEP 7. When a local variable is too small
---
+
 -- Most of this step is yours. Put each error number in a comment.
 -- =================================================================
 
@@ -389,13 +389,14 @@ CALL count_scores(3,5);
 
 -- add Ana Lopes as a new student
 describe students;
-insert into students(null, "Ana", "Lopez", null);
+insert into students
+values (null, "Ana", "Lopez", null);
+
 select * from students;
 
 -- add a perfect quiz1 score for Ana
 call add_score('quiz1', 7, 100);
--- Error message: Out of range value for column 'v_gpa' at row 1
--- v_gpa is too small to store a gpa of 100
+-- error 1264: v_gpa cannot store a gpa of 100
 
 select * from test_scores;
 select * from students;
@@ -433,7 +434,7 @@ update students
 set gpa = calculate_gpa(7)
 where student_id = 7;
 
-CALL list_students; -- Ana's gpa is 100.00
+CALL list_students(); -- Ana's gpa is 100.00
 
 -- =================================================================
 -- STEP 8. IF, ELSEIF and ELSE, student_standing
@@ -489,9 +490,40 @@ select @s;
 -- Write the DROP. Copy the skeleton and fill the two gaps.
 -- =================================================================
 
--- your comment goes here
--- your statements go here
+-- drop add_score
+drop procedure add_score;
 
+-- adds a score only when it is a real score
+CREATE PROCEDURE add_score(IN p_test_name VARCHAR(20),
+    IN p_student_id INT,
+    IN p_score FLOAT)
+    BEGIN
+    -- check if the score is below 0 or above 100
+    IF p_score < 0 OR p_score > 100 THEN
+        SELECT 'Score must be between 0 and 100' AS message;
+    ELSE
+        -- add the valid score to test_scores
+        INSERT INTO test_scores (test_name, student_id, score)
+        VALUES (p_test_name, p_student_id, p_score);
+
+        -- update the student's gpa
+        UPDATE students
+        SET gpa = calculate_gpa(p_student_id)
+        WHERE student_id = p_student_id;
+    END IF;
+END
+
+-- test a score below 0
+CALL add_score("quiz5", 4, -20);
+
+-- test a score above 100
+CALL add_score("quiz5", 4, 120);
+
+-- test a valid score of 91
+CALL add_score ("quiz5", 2, 91);
+
+-- check the updated student gpas
+CALL list_students();
 
 -- =================================================================
 -- STEP 10. Rebuild record_attendance so it checks the student
@@ -499,9 +531,39 @@ select @s;
 -- Yours from start to finish. The handout walks you through it.
 -- =================================================================
 
--- your comment goes here
--- your statements go here
+-- check if a student exists before recording attendance
 
+-- remove the old record_attendance procedure
+drop procedure if exists record_attendance;
+
+-- create a procedure to record student attendance
+CREATE PROCEDURE if not exists record_attendance(IN p_student_id INT,
+    IN p_status VARCHAR(10))
+BEGIN
+    -- create a variable to count matching students
+    DECLARE v_found INT DEFAULT 0;
+    -- check if the student exists
+    SELECT COUNT(*)
+    INTO v_found
+    FROM students
+    WHERE student_id = p_student_id;
+    -- show a message if the student does not exist
+    IF v_found = 0 THEN
+        SELECT "No such student" AS message;
+    ELSE
+        -- record attendance if the student exists
+        INSERT INTO attendance (student_id, status)
+        VALUES (p_student_id, p_status);
+    END IF;
+END
+
+-- call record_attendance student 9, present
+CALL record_attendance (9, "present");
+
+-- call record_attendance student 3, late
+CALL record_attendance(3, "late");
+
+SELECT * from attendance; 
 
 -- =================================================================
 -- STEP 11 and 12. Push to GitHub and submit the URL
@@ -509,5 +571,3 @@ select @s;
 -- Nothing to write here. Follow the handout.
 -- =================================================================
 
--- your comment goes here
--- your statements go here
